@@ -16,6 +16,23 @@ app.get('/health',	(req,	res)	=>	{
 				timestamp:	new	Date().toISOString()
 		});
 });
+// ====================  AGENT LEVEL WEBHOOK ====================
+app.post('/webhook/retell-events', async (req, res) => {
+	console.log('📞 Retell Event received:', JSON.stringify(req.body, null, 2));
+	
+	const { event, call } = req.body;
+	
+	if (event === 'call_started') {
+	  console.log('📞 Call started:', call?.call_id);
+	}
+	
+	if (event === 'call_ended') {
+	  console.log('📞 Call ended:', call?.call_id);
+	}
+  
+	// Always return 200 so Retell knows we received it
+	res.status(200).json({ received: true });
+  });
 //	====================	MAIN	WEBHOOK	HANDLER	====================
 app.post('/webhook/retell-function',	async	(req,	res)	=>	{
 		console.log('	Received	webhook	from	Retell	AI');
