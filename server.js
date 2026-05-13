@@ -399,6 +399,15 @@ function	buildConfirmationMessage(validatedOrder,	toastResponse)	{
 Main	Street.`;
 }
 //	====================	START	SERVER	====================
+// Catch any unhandled errors so server doesn't crash
+process.on('uncaughtException', (err) => {
+	console.error('❌ Uncaught Exception:', err.message);
+  });
+  
+  process.on('unhandledRejection', (err) => {
+	console.error('❌ Unhandled Rejection:', err.message);
+  });
+  
 app.listen(PORT,	()	=>	{
 		console.log('	Backend	server	started!');
 		console.log(`	Listening	on	port	${PORT}`);
