@@ -23,17 +23,12 @@ app.get('/health', (req, res) => {
 
 // ====================  AGENT LEVEL WEBHOOK (call events) ====================
 app.post('/webhook/retell-events', async (req, res) => {
-  console.log('📞 Retell Event received:', JSON.stringify(req.body, null, 2));
-
   const { event, call } = req.body;
 
-  if (event === 'call_started') {
-    console.log('📞 Call started:', call?.call_id);
-  }
+  // Only log the event type and call_id — not the full payload
+  console.log(`📞 Retell Event: ${event} | call_id: ${call?.call_id}`);
 
   if (event === 'call_ended') {
-    console.log('📞 Call ended:', call?.call_id);
-    // Save call log when call ends
     try {
       await db.query(
         `INSERT INTO call_logs (call_sid, retell_call_id, from_number, success)
@@ -46,84 +41,30 @@ app.post('/webhook/retell-events', async (req, res) => {
     }
   }
 
-  // Always return 200 so Retell knows we received it
   res.status(200).json({ received: true });
 });
 
 // ====================  MAIN WEBHOOK HANDLER (function calls) ====================
 app.post('/webhook/retell-function', async (req, res) => {
-  console.log('🔔 Received webhook from Retell AI');
-  console.log('Payload:', JSON.stringify(req.body, null, 2));
+  console.log('🔔 Received order webhook from Retell AI');
 
-  app.post('/webhook/retell-function', async (req, res) => {
-	console.log('🔔 Received webhook from Retell AI');
-	console.log('Payload:', JSON.stringify(req.body, null, 2));
-  
-	// Retell sends args directly in the body
-	app.post('/webhook/retell-function', async (req, res) => {
-		console.log('🔔 Received webhook from Retell AI');
-	  
-		const functionArgs = req.body;
-		const call_id = functionArgs.call_id || 'unknown_' + Date.now();
-	  
-		try {
-		  // Treat every call to this endpoint as submit_order
-		  console.log('🛒 Processing order...');
-		  const result = await processOrder(functionArgs);
-	  
-		  console.log('✅ Order processed successfully');
-		  res.json({ result: result.message });
-	  
-		} catch (error) {
-		  console.error('❌ Error processing order:', error.message);
-		  await logError(call_id, error);
-		  res.json({
-			error: 'Sorry, there was an issue processing your order. Let me transfer you to our staff.'
-		  });
-		}
-	  });
-  
-	try {
-	  console.log('🛒 Processing order...');
-	  const result = await processOrder(functionArgs);
-  
-	  console.log('✅ Order processed successfully');
-	  res.json({ result: result.message });
-  
-	} catch (error) {
-	  console.error('❌ Error processing order:', error.message);
-	  await logError(call_id, error);
-	  res.json({
-		error: 'Sorry, there was an issue processing your order. Let me transfer you to our staff.'
-	  });
-	}
-  });
+  // Retell sends arguments directly in body
+  const functionArgs = req.body;
+  const call_id = functionArgs.call_id || 'unknown_' + Date.now();
+
+  // Log only the important parts
+  console.log(`👤 Customer: ${functionArgs.customer_name} | Items: ${functionArgs.items?.length}`);
 
   try {
-    if (function_name === 'submit_order') {
-      // Add call_id to order data
-      functionArgs.call_id = call_id;
+    console.log('🛒 Processing order...');
+    const result = await processOrder(functionArgs);
 
-      // Process the order
-      console.log('🛒 Processing order...');
-      const result = await processOrder(functionArgs);
-
-      // Return success response
-      console.log('✅ Order processed successfully');
-      res.json({ result: result.message });
-
-    } else {
-      console.log('❌ Unknown function:', function_name);
-      res.json({ error: 'Unknown function name' });
-    }
+    console.log('✅ Order processed successfully');
+    res.json({ result: result.message });
 
   } catch (error) {
     console.error('❌ Error processing order:', error.message);
-
-    // Log error to database
     await logError(call_id, error);
-
-    // Return user-friendly error
     res.json({
       error: 'Sorry, there was an issue processing your order. Let me transfer you to our staff.'
     });
@@ -151,7 +92,6 @@ async function processOrder(orderData) {
 async function validateOrder(orderData) {
   console.log('Validating items against menu...');
 
-  // Get menu items from database
   const itemIds = orderData.items.map(item => item.item_id);
   const menuQuery = `
     SELECT toast_item_id, name, price, modifiers
@@ -164,7 +104,6 @@ async function validateOrder(orderData) {
 
   console.log(`Found ${menuItems.length} menu items`);
 
-  // Validate and enrich each item
   const enrichedItems = [];
   let subtotal = 0;
 
@@ -175,10 +114,8 @@ async function validateOrder(orderData) {
       throw new Error(`Item not found in menu: ${item.item_id}`);
     }
 
-    // Calculate item total
     let itemTotal = menuItem.price * item.quantity;
 
-    // Process modifiers
     const enrichedModifiers = [];
     if (item.modifiers && item.modifiers.length > 0) {
       for (const mod of item.modifiers) {
@@ -197,7 +134,6 @@ async function validateOrder(orderData) {
           action: mod.action || 'add'
         });
 
-        // Add modifier price if action is 'add'
         if ((mod.action || 'add') === 'add') {
           itemTotal += menuModifier.price * item.quantity;
         }
@@ -216,8 +152,7 @@ async function validateOrder(orderData) {
     subtotal += itemTotal;
   }
 
-  // Calculate tax and total
-  const tax = subtotal * 0.08; // 8% tax
+  const tax = subtotal * 0.08;
   const total = subtotal + tax;
 
   console.log(`Order validated: Subtotal $${subtotal.toFixed(2)}, Total $${total.toFixed(2)}`);
@@ -235,13 +170,10 @@ async function validateOrder(orderData) {
 // ====================  TOAST API ====================
 async function getToastToken() {
   if (cachedToastToken && cachedToastToken.expiresAt > Date.now()) {
-    console.log('Using cached Toast token');
     return cachedToastToken.token;
   }
 
-  console.log('Getting new Toast API token...');
   const token = process.env.TOAST_ACCESS_TOKEN;
-
   if (!token) {
     throw new Error('Toast API token not configured');
   }
@@ -266,12 +198,10 @@ function formatOrderForToast(validatedOrder) {
 }
 
 async function sendToToast(validatedOrder) {
-  console.log('Formatting order for Toast API...');
   const toastOrder = formatOrderForToast(validatedOrder);
 
-  // FOR TESTING: If Toast credentials not set, simulate response
   if (!process.env.TOAST_ACCESS_TOKEN || !process.env.TOAST_RESTAURANT_GUID) {
-    console.log('⚠️  Toast API credentials not configured, simulating response...');
+    console.log('⚠️  Toast not configured, simulating response...');
     return {
       order_id: 'test_order_' + Date.now(),
       pickup_time: 20,
@@ -282,7 +212,6 @@ async function sendToToast(validatedOrder) {
   const token = await getToastToken();
 
   try {
-    console.log('Sending order to Toast POS...');
     const response = await axios.post(
       'https://ws-api.toasttab.com/orders/v2/orders',
       toastOrder,
@@ -294,8 +223,6 @@ async function sendToToast(validatedOrder) {
         }
       }
     );
-
-    console.log('✅ Order created in Toast:', response.data.guid);
 
     const pickupTime = new Date();
     pickupTime.setMinutes(pickupTime.getMinutes() + 20);
@@ -394,15 +321,13 @@ async function saveModifiers(orderItemId, modifiers) {
       VALUES ($1, $2, $3, $4, $5)
     `;
 
-    const values = [
+    await db.query(query, [
       orderItemId,
       mod.modifier_id,
       mod.name,
       mod.price,
       mod.action
-    ];
-
-    await db.query(query, values);
+    ]);
   }
 }
 
@@ -415,17 +340,15 @@ async function logCall(callId, orderData, success, error = null) {
     VALUES ($1, $2, $3, $4, $5, $6)
   `;
 
-  const values = [
-    callId,
-    orderData.call_id,
-    orderData.customer_phone,
-    orderData.order_id,
-    success,
-    error
-  ];
-
   try {
-    await db.query(query, values);
+    await db.query(query, [
+      callId,
+      orderData.call_id,
+      orderData.customer_phone,
+      orderData.order_id,
+      success,
+      error
+    ]);
   } catch (err) {
     console.error('Failed to log call:', err.message);
   }
@@ -439,15 +362,13 @@ async function logError(callId, error) {
     VALUES ($1, $2, $3, $4)
   `;
 
-  const values = [
-    callId,
-    error.name || 'Error',
-    error.message,
-    error.stack
-  ];
-
   try {
-    await db.query(query, values);
+    await db.query(query, [
+      callId,
+      error.name || 'Error',
+      error.message,
+      error.stack
+    ]);
   } catch (err) {
     console.error('Failed to log error:', err.message);
   }
@@ -480,6 +401,5 @@ app.listen(PORT, () => {
   console.log(`🔔 Function webhook: http://localhost:${PORT}/webhook/retell-function`);
   console.log(`📞 Events webhook:   http://localhost:${PORT}/webhook/retell-events`);
   console.log(`❤️  Health check:    http://localhost:${PORT}/health`);
-  console.log('');
   console.log('⏳ Waiting for orders...');
 });
