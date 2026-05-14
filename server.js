@@ -55,7 +55,49 @@ app.post('/webhook/retell-function', async (req, res) => {
   console.log('🔔 Received webhook from Retell AI');
   console.log('Payload:', JSON.stringify(req.body, null, 2));
 
-  const { call_id, function_name, arguments: functionArgs } = req.body;
+  app.post('/webhook/retell-function', async (req, res) => {
+	console.log('🔔 Received webhook from Retell AI');
+	console.log('Payload:', JSON.stringify(req.body, null, 2));
+  
+	// Retell sends args directly in the body
+	app.post('/webhook/retell-function', async (req, res) => {
+		console.log('🔔 Received webhook from Retell AI');
+	  
+		const functionArgs = req.body;
+		const call_id = functionArgs.call_id || 'unknown_' + Date.now();
+	  
+		try {
+		  // Treat every call to this endpoint as submit_order
+		  console.log('🛒 Processing order...');
+		  const result = await processOrder(functionArgs);
+	  
+		  console.log('✅ Order processed successfully');
+		  res.json({ result: result.message });
+	  
+		} catch (error) {
+		  console.error('❌ Error processing order:', error.message);
+		  await logError(call_id, error);
+		  res.json({
+			error: 'Sorry, there was an issue processing your order. Let me transfer you to our staff.'
+		  });
+		}
+	  });
+  
+	try {
+	  console.log('🛒 Processing order...');
+	  const result = await processOrder(functionArgs);
+  
+	  console.log('✅ Order processed successfully');
+	  res.json({ result: result.message });
+  
+	} catch (error) {
+	  console.error('❌ Error processing order:', error.message);
+	  await logError(call_id, error);
+	  res.json({
+		error: 'Sorry, there was an issue processing your order. Let me transfer you to our staff.'
+	  });
+	}
+  });
 
   try {
     if (function_name === 'submit_order') {
