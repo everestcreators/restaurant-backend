@@ -31,9 +31,23 @@ app.post('/webhook/retell-events', async (req, res) => {
   if (event === 'call_ended') {
     try {
       await db.query(
-        `INSERT INTO call_logs (call_sid, retell_call_id, from_number, success)
-         VALUES ($1, $2, $3, $4)`,
-        [call?.call_id, call?.call_id, call?.from_number, true]
+        `INSERT INTO call_logs (
+          call_sid, 
+          retell_call_id, 
+          from_number, 
+          duration,
+          transcript,
+          success
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          call?.call_id,
+          call?.call_id,
+          call?.from_number,
+          call?.duration_ms ? Math.round(call.duration_ms / 1000) : null,
+          call?.transcript || null,
+          true
+        ]
       );
       console.log('✅ Call log saved');
     } catch (err) {
