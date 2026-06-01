@@ -416,4 +416,4 @@ app.listen(PORT, () => {
   console.log(`📞 Events webhook:   http://localhost:${PORT}/webhook/retell-events`);
   console.log(`❤️  Health check:    http://localhost:${PORT}/health`);
   console.log('⏳ Waiting for orders...');
-}); 
+});
