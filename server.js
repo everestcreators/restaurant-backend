@@ -30,16 +30,10 @@ app.post('/webhook/retell-events', async (req, res) => {
 
   if (event === 'call_ended') {
     try {
+      // Save call log
       await db.query(
-        `INSERT INTO call_logs (
-          call_sid, 
-          retell_call_id, 
-          from_number, 
-          duration,
-          transcript,
-          success
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO call_logs (call_sid, retell_call_id, from_number, duration, transcript, success)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           call?.call_id,
           call?.call_id,
@@ -49,14 +43,23 @@ app.post('/webhook/retell-events', async (req, res) => {
           true
         ]
       );
+
+      // Update order with customer phone number
+      if (call?.from_number) {
+        await db.query(
+          `UPDATE orders 
+           SET customer_phone = $1 
+           WHERE call_id = $2 AND customer_phone IS NULL`,
+          [call.from_number, call.call_id]
+        );
+        console.log('✅ Phone number saved to order');
+      }
+
       console.log('✅ Call log saved');
     } catch (err) {
       console.error('❌ Failed to save call log:', err.message);
     }
   }
-
-  res.status(200).json({ received: true });
-});
 
 // ====================  MAIN WEBHOOK HANDLER (function calls) ====================
 app.post('/webhook/retell-function', async (req, res) => {
