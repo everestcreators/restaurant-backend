@@ -257,10 +257,6 @@ async function saveToDatabase(validatedOrder, toastResponse) {
   try {
     const orderId = await saveOrder(validatedOrder, toastResponse);
     await saveOrderItems(orderId, validatedOrder.items);
-    await logCall(validatedOrder.call_id, {
-      ...validatedOrder,
-      order_id: orderId
-    }, true);
 
     console.log(`✅ Order ${orderId} saved to database`);
 
