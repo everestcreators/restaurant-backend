@@ -6,10 +6,8 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON
 app.use(express.json());
 
-// Token cache for Toast API
 let cachedToastToken = null;
 
 // ====================  HEALTH CHECK ====================
@@ -21,16 +19,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ====================  AGENT LEVEL WEBHOOK (call events) ====================
+// ====================  AGENT LEVEL WEBHOOK ====================
 app.post('/webhook/retell-events', async (req, res) => {
   const { event, call } = req.body;
 
-  // Only log the event type and call_id — not the full payload
   console.log(`📞 Retell Event: ${event} | call_id: ${call?.call_id}`);
 
   if (event === 'call_ended') {
     try {
-      // Save call log
       await db.query(
         `INSERT INTO call_logs (call_sid, retell_call_id, from_number, duration, transcript, success)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -44,7 +40,6 @@ app.post('/webhook/retell-events', async (req, res) => {
         ]
       );
 
-      // Update order with customer phone number
       if (call?.from_number) {
         await db.query(
           `UPDATE orders 
@@ -61,15 +56,16 @@ app.post('/webhook/retell-events', async (req, res) => {
     }
   }
 
-// ====================  MAIN WEBHOOK HANDLER (function calls) ====================
+  res.status(200).json({ received: true });
+}); // ← this was missing!
+
+// ====================  MAIN WEBHOOK HANDLER ====================
 app.post('/webhook/retell-function', async (req, res) => {
   console.log('🔔 Received order webhook from Retell AI');
 
-  // Retell sends arguments directly in body
   const functionArgs = req.body;
   const call_id = functionArgs.call_id || 'unknown_' + Date.now();
 
-  // Log only the important parts
   console.log(`👤 Customer: ${functionArgs.customer_name} | Items: ${functionArgs.items?.length}`);
 
   try {
