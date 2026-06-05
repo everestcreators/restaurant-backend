@@ -69,7 +69,17 @@ console.log('✅ Call linked to order');
          AND call_logs.retell_call_id = $1`,
         [call?.call_id]
       );
-      
+      // Also update orders with phone number using the linked order
+await db.query(
+  `UPDATE orders o
+   SET customer_phone = $1
+   FROM call_logs cl
+   WHERE cl.retell_call_id = $2
+   AND cl.order_id = o.id
+   AND o.customer_phone IS NULL`,
+  [call?.from_number, call?.call_id]
+);
+console.log('✅ Order phone number updated');
       console.log('✅ Call log saved');
     } catch (err) {
       console.error('❌ Failed to save call log:', err.message);
