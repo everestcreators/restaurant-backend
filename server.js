@@ -49,7 +49,27 @@ app.post('/webhook/retell-events', async (req, res) => {
         );
         console.log('✅ Phone number saved to order');
       }
-
+      // Link call log to order by timestamp
+await db.query(
+  `UPDATE call_logs cl
+   SET order_id = o.id
+   FROM orders o
+   WHERE cl.order_id IS NULL
+   AND cl.retell_call_id = $1
+   AND ABS(EXTRACT(EPOCH FROM (cl.created_at - o.created_at))) < 60`,
+  [call?.call_id]
+);
+console.log('✅ Call linked to order');
+      // Update call_log with order_id so we can join for customer name
+      await db.query(
+        `UPDATE call_logs 
+         SET order_id = orders.id
+         FROM orders
+         WHERE orders.call_id = $1
+         AND call_logs.retell_call_id = $1`,
+        [call?.call_id]
+      );
+      
       console.log('✅ Call log saved');
     } catch (err) {
       console.error('❌ Failed to save call log:', err.message);
